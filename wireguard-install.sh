@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Secure WireGuard server installer
+# Secure Amnezia WireGuard server installer
+# https://github.com/Moondarker/amneziawg-install
+# forked from
 # https://github.com/angristan/wireguard-install
 
 RED='\033[0;31m'
@@ -102,8 +104,8 @@ function initialCheck() {
 }
 
 function installQuestions() {
-	echo "Welcome to the WireGuard installer!"
-	echo "The git repository is available at: https://github.com/angristan/wireguard-install"
+	echo "Welcome to the Amnezia WireGuard installer!"
+	echo "The git repository is available at: https://github.com/Moondarker/amneziawg-install"
 	echo ""
 	echo "I need to ask you a few questions before starting the setup."
 	echo "You can keep the default options and just press enter if you are ok with them."
@@ -124,21 +126,65 @@ function installQuestions() {
 	done
 
 	until [[ ${SERVER_WG_NIC} =~ ^[a-zA-Z0-9_]+$ && ${#SERVER_WG_NIC} -lt 16 ]]; do
-		read -rp "WireGuard interface name: " -e -i wg0 SERVER_WG_NIC
+		read -rp "WireGuard interface name: " -e -i wg1 SERVER_WG_NIC
 	done
 
 	until [[ ${SERVER_WG_IPV4} =~ ^([0-9]{1,3}\.){3} ]]; do
-		read -rp "Server WireGuard IPv4: " -e -i 10.66.66.1 SERVER_WG_IPV4
+		read -rp "Server WireGuard IPv4: " -e -i 10.66.67.1 SERVER_WG_IPV4
 	done
 
 	until [[ ${SERVER_WG_IPV6} =~ ^([a-f0-9]{1,4}:){3,4}: ]]; do
-		read -rp "Server WireGuard IPv6: " -e -i fd42:42:42::1 SERVER_WG_IPV6
+		read -rp "Server WireGuard IPv6: " -e -i fd42:42:43::1 SERVER_WG_IPV6
 	done
 
 	# Generate random number within private ports range
 	RANDOM_PORT=$(shuf -i49152-65535 -n1)
 	until [[ ${SERVER_PORT} =~ ^[0-9]+$ ]] && [ "${SERVER_PORT}" -ge 1 ] && [ "${SERVER_PORT}" -le 65535 ]; do
 		read -rp "Server WireGuard port [1-65535]: " -e -i "${RANDOM_PORT}" SERVER_PORT
+	done
+
+	# Prepare numbers for AmneziaWG protocol
+	RANDOM_JUNK_COUNT=$(shuf -i3-10 -n1)
+	until [[ ${SERVER_JUNK_COUNT} =~ ^[0-9]+$ ]] && [ "${SERVER_JUNK_COUNT}" -ge 0 ] && [ "${SERVER_JUNK_COUNT}" -le 2147483647 ]; do
+		read -rp "Server junk packet count [>=0]: " -e -i "${RANDOM_JUNK_COUNT}" SERVER_JUNK_COUNT
+	done
+
+	until [[ ${SERVER_JUNK_MIN_SIZE} =~ ^[0-9]+$ ]] && [ "${SERVER_JUNK_MIN_SIZE}" -ge 0 ] && [ "${SERVER_JUNK_MIN_SIZE}" -le 2147483647 ]; do
+		read -rp "Server junk packet min size [>=0]: " -e -i 50 SERVER_JUNK_MIN_SIZE
+	done
+
+	until [[ ${SERVER_JUNK_MAX_SIZE} =~ ^[0-9]+$ ]] && [ "${SERVER_JUNK_MAX_SIZE}" -ge 0 ] && [ "${SERVER_JUNK_MAX_SIZE}" -le 2147483647 ]; do
+		read -rp "Server junk packet max size [>=0]: " -e -i 1000 SERVER_JUNK_MAX_SIZE
+	done
+
+	RANDOM_INIT_JUNK_SIZE=$(shuf -i15-150 -n1)
+	until [[ ${SERVER_INIT_JUNK_SIZE} =~ ^[0-9]+$ ]] && [ "${SERVER_INIT_JUNK_SIZE}" -ge 0 ] && [ "${SERVER_INIT_JUNK_SIZE}" -le 2147483647 ]; do
+		read -rp "Server init packet junk size [>=0]: " -e -i "${RANDOM_INIT_JUNK_SIZE}" SERVER_INIT_JUNK_SIZE
+	done
+
+	RANDOM_RESPONSE_JUNK_SIZE=$(shuf -i15-150 -n1)
+	until [[ ${SERVER_RESPONSE_JUNK_SIZE} =~ ^[0-9]+$ ]] && [ "${SERVER_RESPONSE_JUNK_SIZE}" -ge 0 ] && [ "${SERVER_RESPONSE_JUNK_SIZE}" -le 2147483647 ]; do
+		read -rp "Server response packet junk size [>=0]: " -e -i "${RANDOM_RESPONSE_JUNK_SIZE}" SERVER_RESPONSE_JUNK_SIZE
+	done
+
+	RANDOM_INIT_HEADER=$(shuf -i15-2147483647 -n1)
+	until [[ ${SERVER_INIT_HEADER} =~ ^[0-9]+$ ]] && [ "${SERVER_INIT_HEADER}" -ge 0 ] && [ "${SERVER_INIT_HEADER}" -le 2147483647 ]; do
+		read -rp "Server init packet magic header [>=0]: " -e -i "${RANDOM_INIT_HEADER}" SERVER_INIT_HEADER
+	done
+
+	RANDOM_RESPONSE_HEADER=$(shuf -i15-2147483647 -n1)
+	until [[ ${SERVER_RESPONSE_HEADER} =~ ^[0-9]+$ ]] && [ "${SERVER_RESPONSE_HEADER}" -ge 0 ] && [ "${SERVER_RESPONSE_HEADER}" -le 2147483647 ]; do
+		read -rp "Server response packet magic header [>=0]: " -e -i "${RANDOM_RESPONSE_HEADER}" SERVER_RESPONSE_HEADER
+	done
+
+	RANDOM_UNDERLOAD_HEADER=$(shuf -i15-2147483647 -n1)
+	until [[ ${SERVER_UNDERLOAD_HEADER} =~ ^[0-9]+$ ]] && [ "${SERVER_UNDERLOAD_HEADER}" -ge 0 ] && [ "${SERVER_UNDERLOAD_HEADER}" -le 2147483647 ]; do
+		read -rp "Server underload packet magic header [>=0]: " -e -i "${RANDOM_UNDERLOAD_HEADER}" SERVER_UNDERLOAD_HEADER
+	done
+
+	RANDOM_TRANSPORT_HEADER=$(shuf -i15-2147483647 -n1)
+	until [[ ${SERVER_TRANSPORT_HEADER} =~ ^[0-9]+$ ]] && [ "${SERVER_TRANSPORT_HEADER}" -ge 0 ] && [ "${SERVER_TRANSPORT_HEADER}" -le 2147483647 ]; do
+		read -rp "Server transport packet magic header [>=0]: " -e -i "${RANDOM_TRANSPORT_HEADER}" SERVER_TRANSPORT_HEADER
 	done
 
 	# Adguard DNS by default
@@ -170,41 +216,93 @@ function installWireGuard() {
 	# Run setup questions first
 	installQuestions
 
-	# Install WireGuard tools and module
-	if [[ ${OS} == 'ubuntu' ]] || [[ ${OS} == 'debian' && ${VERSION_ID} -gt 10 ]]; then
-		apt-get update
-		apt-get install -y wireguard iptables resolvconf qrencode
-	elif [[ ${OS} == 'debian' ]]; then
-		if ! grep -rqs "^deb .* buster-backports" /etc/apt/; then
-			echo "deb http://deb.debian.org/debian buster-backports main" >/etc/apt/sources.list.d/backports.list
-			apt-get update
-		fi
+	# Install related tools
+	if [[ ${OS} == 'ubuntu' ]] || [[ ${OS} == 'debian' ]]; then
 		apt update
-		apt-get install -y iptables resolvconf qrencode
-		apt-get install -y -t buster-backports wireguard
+		apt install -y iptables resolvconf qrencode wget git build-essential
 	elif [[ ${OS} == 'fedora' ]]; then
-		if [[ ${VERSION_ID} -lt 32 ]]; then
-			dnf install -y dnf-plugins-core
-			dnf copr enable -y jdoss/wireguard
-			dnf install -y wireguard-dkms
-		fi
-		dnf install -y wireguard-tools iptables qrencode
+		dnf install -y iptables qrencode wget git
+		dnf group install -y "Development Tools"
 	elif [[ ${OS} == 'centos' ]] || [[ ${OS} == 'almalinux' ]] || [[ ${OS} == 'rocky' ]]; then
 		if [[ ${VERSION_ID} == 8* ]]; then
-			yum install -y epel-release elrepo-release
-			yum install -y kmod-wireguard
 			yum install -y qrencode # not available on release 9
 		fi
-		yum install -y wireguard-tools iptables
+		yum install -y iptables wget git
+		yum group install -y "Development Tools"
 	elif [[ ${OS} == 'oracle' ]]; then
-		dnf install -y oraclelinux-developer-release-el8
-		dnf config-manager --disable -y ol8_developer
-		dnf config-manager --enable -y ol8_developer_UEKR6
-		dnf config-manager --save -y --setopt=ol8_developer_UEKR6.includepkgs='wireguard-tools*'
-		dnf install -y wireguard-tools qrencode iptables
+		dnf install -y qrencode iptables wget git
+		dnf group install -y "Development Tools"
 	elif [[ ${OS} == 'arch' ]]; then
-		pacman -S --needed --noconfirm wireguard-tools qrencode
+		pacman -S --needed --noconfirm qrencode wget git base-devel
 	fi
+
+	# Prepare Go compiler
+	declare -A archMap
+	archMap[aarch64]="arm64"
+	archMap[aarch64_be]="arm64"
+	archMap[armv8b]="arm64"
+	archMap[armv8l]="arm64"
+	archMap[arm]="armv6l"
+	archMap[i386]="386"
+	archMap[i686]="386"
+	archMap[x86_64]="x64"
+
+	pwd=$(pwd)
+	mkdir /tmp/awg-installer >/dev/null 2>&1
+	cd /tmp/awg-installer || (echo "cd failed, wtf..." && return)
+
+	wget -O golang.tar.gz "https://go.dev/dl/go1.21.6.linux-${archMap[$(uname -m)]}.tar.gz"
+	tar -C . -xzf /tmp/awg-installer/golang.tar.gz
+
+	export PATH="$PATH:/tmp/awg-installer/go/bin"
+
+	# Compile and install AmneziaWG
+	git clone https://github.com/amnezia-vpn/amnezia-wg.git /tmp/awg-installer
+	git clone https://github.com/amnezia-vpn/amnezia-wg-tools.git /tmp/awg-installer
+
+	cd awnezia-wg || echo "cd failed, wtf..."
+	make
+	make install
+
+	cd ../awnezia-wg-tools/src || echo "cd failed, wtf..."
+
+	patch wg-quick/linux.bash <<'EOF'
+--- unpatched	2024-01-16 08:34:32.784630000 +0300
++++ patched		2024-01-16 08:36:40.902212300 +0300
+@@ -87,6 +87,11 @@
+ 
+ add_if() {
+ 	local ret
++	force_fallback=${FORCE_FALLBACK:-0}
++	if [[ ${force_fallback} -eq 1 ]]; then
++		cmd "${WG_QUICK_USERSPACE_IMPLEMENTATION:-wireguard-go}" "$INTERFACE"
++		exit $?
++	fi
+ 	if ! cmd ip link add "$INTERFACE" type wireguard; then
+ 		ret=$?
+ 		[[ -e /sys/module/wireguard ]] || ! command -v "${WG_QUICK_USERSPACE_IMPLEMENTATION:-wireguard-go}" >/dev/null && exit $ret
+
+EOF
+
+	cp systemd/wg-quick@.service systemd/wg-quick-fallback@.service
+	patch systemd/wg-quick-fallback@.service <<'EOF'
+--- unpatched	2024-01-16 08:34:32.784630000 +0300
++++ patched		2024-01-16 08:36:40.902212300 +0300
+@@ -17,6 +17,7 @@
+ ExecStop=/usr/bin/wg-quick down %i
+ ExecReload=/bin/bash -c 'exec /usr/bin/wg syncconf %i <(exec /usr/bin/wg-quick strip %i)'
+ Environment=WG_ENDPOINT_RESOLUTION_RETRIES=infinity
++Environment=FORCE_FALLBACK=1
+ 
+ [Install]
+ WantedBy=multi-user.target
+
+EOF
+
+	make
+	make install
+
+	cd "${pwd}" || echo "cd failed, wtf..."
 
 	# Make sure the directory exists (this does not seem the be the case on fedora)
 	mkdir /etc/wireguard >/dev/null 2>&1
@@ -223,15 +321,33 @@ SERVER_WG_IPV6=${SERVER_WG_IPV6}
 SERVER_PORT=${SERVER_PORT}
 SERVER_PRIV_KEY=${SERVER_PRIV_KEY}
 SERVER_PUB_KEY=${SERVER_PUB_KEY}
+SERVER_JUNK_COUNT=${SERVER_JUNK_COUNT}
+SERVER_JUNK_MIN_SIZE=${SERVER_JUNK_MIN_SIZE}
+SERVER_JUNK_MAX_SIZE=${SERVER_JUNK_MAX_SIZE}
+SERVER_INIT_JUNK_SIZE=${SERVER_INIT_JUNK_SIZE}
+SERVER_RESPONSE_JUNK_SIZE=${SERVER_RESPONSE_JUNK_SIZE}
+SERVER_INIT_HEADER=${SERVER_INIT_HEADER}
+SERVER_RESPONSE_HEADER=${SERVER_RESPONSE_HEADER}
+SERVER_UNDERLOAD_HEADER=${SERVER_UNDERLOAD_HEADER}
+SERVER_TRANSPORT_HEADER=${SERVER_TRANSPORT_HEADER}
 CLIENT_DNS_1=${CLIENT_DNS_1}
 CLIENT_DNS_2=${CLIENT_DNS_2}
-ALLOWED_IPS=${ALLOWED_IPS}" >/etc/wireguard/params
+ALLOWED_IPS=${ALLOWED_IPS}" >/etc/wireguard/params-awg
 
 	# Add server interface
 	echo "[Interface]
 Address = ${SERVER_WG_IPV4}/24,${SERVER_WG_IPV6}/64
 ListenPort = ${SERVER_PORT}
-PrivateKey = ${SERVER_PRIV_KEY}" >"/etc/wireguard/${SERVER_WG_NIC}.conf"
+PrivateKey = ${SERVER_PRIV_KEY}
+Jc = ${SERVER_JUNK_COUNT}
+Jmin = ${SERVER_JUNK_MIN_SIZE}
+Jmax = ${SERVER_JUNK_MAX_SIZE}
+S1 = ${SERVER_INIT_JUNK_SIZE}
+S2 = ${SERVER_RESPONSE_JUNK_SIZE}
+H1 = ${SERVER_INIT_HEADER}
+H2 = ${SERVER_RESPONSE_HEADER}
+H3 = ${SERVER_UNDERLOAD_HEADER}
+H4 = ${SERVER_TRANSPORT_HEADER}" >"/etc/wireguard/${SERVER_WG_NIC}.conf"
 
 	if pgrep firewalld; then
 		FIREWALLD_IPV4_ADDRESS=$(echo "${SERVER_WG_IPV4}" | cut -d"." -f1-3)".0"
@@ -255,28 +371,28 @@ PostDown = ip6tables -t nat -D POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE" >
 
 	# Enable routing on the server
 	echo "net.ipv4.ip_forward = 1
-net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
+net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/awg.conf
 
 	sysctl --system
 
-	systemctl start "wg-quick@${SERVER_WG_NIC}"
-	systemctl enable "wg-quick@${SERVER_WG_NIC}"
+	systemctl start "wg-quick-fallback@${SERVER_WG_NIC}"
+	systemctl enable "wg-quick-fallback@${SERVER_WG_NIC}"
 
 	newClient
 	echo -e "${GREEN}If you want to add more clients, you simply need to run this script another time!${NC}"
 
 	# Check if WireGuard is running
-	systemctl is-active --quiet "wg-quick@${SERVER_WG_NIC}"
+	systemctl is-active --quiet "wg-quick-fallback@${SERVER_WG_NIC}"
 	WG_RUNNING=$?
 
 	# WireGuard might not work if we updated the kernel. Tell the user to reboot
 	if [[ ${WG_RUNNING} -ne 0 ]]; then
 		echo -e "\n${RED}WARNING: WireGuard does not seem to be running.${NC}"
-		echo -e "${ORANGE}You can check if WireGuard is running with: systemctl status wg-quick@${SERVER_WG_NIC}${NC}"
+		echo -e "${ORANGE}You can check if WireGuard is running with: systemctl status wg-quick-fallback@${SERVER_WG_NIC}${NC}"
 		echo -e "${ORANGE}If you get something like \"Cannot find device ${SERVER_WG_NIC}\", please reboot!${NC}"
 	else # WireGuard is running
 		echo -e "\n${GREEN}WireGuard is running.${NC}"
-		echo -e "${GREEN}You can check the status of WireGuard with: systemctl status wg-quick@${SERVER_WG_NIC}\n\n${NC}"
+		echo -e "${GREEN}You can check the status of WireGuard with: systemctl status wg-quick-fallback@${SERVER_WG_NIC}\n\n${NC}"
 		echo -e "${ORANGE}If you don't have internet connectivity from your client, try to reboot the server.${NC}"
 	fi
 }
@@ -357,6 +473,15 @@ function newClient() {
 PrivateKey = ${CLIENT_PRIV_KEY}
 Address = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128
 DNS = ${CLIENT_DNS_1},${CLIENT_DNS_2}
+Jc = ${SERVER_JUNK_COUNT}
+Jmin = ${SERVER_JUNK_MIN_SIZE}
+Jmax = ${SERVER_JUNK_MAX_SIZE}
+S1 = ${SERVER_INIT_JUNK_SIZE}
+S2 = ${SERVER_RESPONSE_JUNK_SIZE}
+H1 = ${SERVER_INIT_HEADER}
+H2 = ${SERVER_RESPONSE_HEADER}
+H3 = ${SERVER_UNDERLOAD_HEADER}
+H4 = ${SERVER_TRANSPORT_HEADER}
 
 [Peer]
 PublicKey = ${SERVER_PUB_KEY}
@@ -429,45 +554,35 @@ function revokeClient() {
 
 function uninstallWg() {
 	echo ""
-	echo -e "\n${RED}WARNING: This will uninstall WireGuard and remove all the configuration files!${NC}"
+	echo -e "\n${RED}WARNING: This will remove active configuration files and related packages, and then disable the service!${NC}"
 	echo -e "${ORANGE}Please backup the /etc/wireguard directory if you want to keep your configuration files.\n${NC}"
 	read -rp "Do you really want to remove WireGuard? [y/n]: " -e REMOVE
 	REMOVE=${REMOVE:-n}
 	if [[ $REMOVE == 'y' ]]; then
 		checkOS
 
-		systemctl stop "wg-quick@${SERVER_WG_NIC}"
-		systemctl disable "wg-quick@${SERVER_WG_NIC}"
+		systemctl stop "wg-quick-fallback@${SERVER_WG_NIC}"
+		systemctl disable "wg-quick-fallback@${SERVER_WG_NIC}"
 
-		if [[ ${OS} == 'ubuntu' ]]; then
-			apt-get remove -y wireguard wireguard-tools qrencode
-		elif [[ ${OS} == 'debian' ]]; then
-			apt-get remove -y wireguard wireguard-tools qrencode
+		if [[ ${OS} == 'ubuntu' ]] || [[ ${OS} == 'debian' ]]; then
+			apt-get remove -y qrencode
 		elif [[ ${OS} == 'fedora' ]]; then
-			dnf remove -y --noautoremove wireguard-tools qrencode
-			if [[ ${VERSION_ID} -lt 32 ]]; then
-				dnf remove -y --noautoremove wireguard-dkms
-				dnf copr disable -y jdoss/wireguard
-			fi
-		elif [[ ${OS} == 'centos' ]] || [[ ${OS} == 'almalinux' ]] || [[ ${OS} == 'rocky' ]]; then
-			yum remove -y --noautoremove wireguard-tools
-			if [[ ${VERSION_ID} == 8* ]]; then
-				yum remove --noautoremove kmod-wireguard qrencode
-			fi
+			dnf remove -y --noautoremove qrencode
 		elif [[ ${OS} == 'oracle' ]]; then
-			yum remove --noautoremove wireguard-tools qrencode
+			yum remove --noautoremove qrencode
 		elif [[ ${OS} == 'arch' ]]; then
-			pacman -Rs --noconfirm wireguard-tools qrencode
+			pacman -Rs --noconfirm qrencode
 		fi
 
-		rm -rf /etc/wireguard
-		rm -f /etc/sysctl.d/wg.conf
+		rm -f "/etc/wireguard/${SERVER_WG_NIC}.conf"
+		rm -f "/etc/wireguard/params-awg"
+		rm -f /etc/sysctl.d/awg.conf
 
 		# Reload sysctl
 		sysctl --system
 
 		# Check if WireGuard is running
-		systemctl is-active --quiet "wg-quick@${SERVER_WG_NIC}"
+		systemctl is-active --quiet "wg-quick-fallback@${SERVER_WG_NIC}"
 		WG_RUNNING=$?
 
 		if [[ ${WG_RUNNING} -eq 0 ]]; then
@@ -484,10 +599,10 @@ function uninstallWg() {
 }
 
 function manageMenu() {
-	echo "Welcome to WireGuard-install!"
-	echo "The git repository is available at: https://github.com/angristan/wireguard-install"
+	echo "Welcome to the Amnezia WireGuard installer!"
+	echo "The git repository is available at: https://github.com/Moondarker/amneziawg-install"
 	echo ""
-	echo "It looks like WireGuard is already installed."
+	echo "It looks like Amnezia WireGuard is already installed."
 	echo ""
 	echo "What do you want to do?"
 	echo "   1) Add a new user"
@@ -521,8 +636,8 @@ function manageMenu() {
 initialCheck
 
 # Check if WireGuard is already installed and load params
-if [[ -e /etc/wireguard/params ]]; then
-	source /etc/wireguard/params
+if [[ -e /etc/wireguard/params-awg ]]; then
+	source /etc/wireguard/params-awg
 	manageMenu
 else
 	installWireGuard
