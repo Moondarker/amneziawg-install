@@ -276,7 +276,7 @@ function installWireGuard() {
 +	force_fallback=${FORCE_FALLBACK:-0}
 +	if [[ ${force_fallback} -eq 1 ]]; then
 +		cmd "${WG_QUICK_USERSPACE_IMPLEMENTATION:-wireguard-go}" "$INTERFACE"
-+		exit $?
++		return $?
 +	fi
  	if ! cmd ip link add "$INTERFACE" type wireguard; then
  		ret=$?
@@ -303,6 +303,7 @@ EOF
 	make install
 
 	cd "${pwd}" || echo "cd failed, wtf..."
+	rm -rf /tmp/awg-installer
 
 	# Make sure the directory exists (this does not seem the be the case on fedora)
 	mkdir /etc/wireguard >/dev/null 2>&1
