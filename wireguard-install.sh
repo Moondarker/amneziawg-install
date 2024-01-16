@@ -257,14 +257,14 @@ function installWireGuard() {
 	export PATH="$PATH:/tmp/awg-installer/go/bin"
 
 	# Compile and install AmneziaWG
-	git clone https://github.com/amnezia-vpn/amnezia-wg.git /tmp/awg-installer
-	git clone https://github.com/amnezia-vpn/amnezia-wg-tools.git /tmp/awg-installer
+	git clone https://github.com/amnezia-vpn/amnezia-wg.git 
+	git clone https://github.com/amnezia-vpn/amnezia-wg-tools.git
 
-	cd awnezia-wg || echo "cd failed, wtf..."
+	cd amnezia-wg || echo "cd failed, wtf..."
 	make
 	make install
 
-	cd ../awnezia-wg-tools/src || echo "cd failed, wtf..."
+	cd ../amnezia-wg-tools/src || echo "cd failed, wtf..."
 
 	patch wg-quick/linux.bash <<'EOF'
 --- unpatched	2024-01-16 08:34:32.784630000 +0300
