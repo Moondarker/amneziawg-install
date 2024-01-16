@@ -245,7 +245,7 @@ function installWireGuard() {
 	archMap[arm]="armv6l"
 	archMap[i386]="386"
 	archMap[i686]="386"
-	archMap[x86_64]="x64"
+	archMap[x86_64]="amd64"
 
 	pwd=$(pwd)
 	mkdir /tmp/awg-installer >/dev/null 2>&1
