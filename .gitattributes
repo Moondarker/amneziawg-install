@@ -1,0 +1,2 @@
+# Avoid SC1017 on Windows
+*.sh text eol=lf
